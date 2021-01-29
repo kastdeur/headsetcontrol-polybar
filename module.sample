@@ -1,0 +1,4 @@
+[module/headsetcontrol]
+type = custom/scripts
+exec = /path/to/headsetcontrol-polybar
+interval = 10

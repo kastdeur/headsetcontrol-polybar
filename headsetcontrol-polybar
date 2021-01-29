@@ -1,0 +1,77 @@
+#!/bin/bash
+
+# Small script to get information from `headsetcontrol` to `polybar`.
+OPTION_BATTERY='-b'
+OPTION_SILENT='-c'
+SEARCH_HEADSETCONTROL="headsetcontrol"
+HEADSETCONTROL=""
+
+errcho(){ echo "$@" 1>&2; }
+
+
+# Try to detect headsetcontrol in $PATH
+if command -v "$SEARCH_HEADSETCONTROL" > /dev/null ; then
+    HEADSETCONTROL="$(command -v $SEARCH_HEADSETCONTROL )"
+fi
+
+if [ -z "$HEADSETCONTROL" ]; then
+    echo "$SEARCH_HEADSETCONTROL not found in PATH"
+    errcho "Exiting.."
+    exit 1
+fi
+
+# Make sure something is detected
+DEVICE="$($HEADSETCONTROL 2> /dev/null | grep 'Found' )"
+if [ -z "$DEVICE" ]; then
+    echo "No device found!"
+    errcho "Exiting.."
+    exit 1
+fi
+
+if [ $(echo "$DEVICE" | wc -l ) -eq 2 ]; then
+    echo "Too many devices found!"
+    errcho "$DEVICES"
+    errcho "Exiting.."
+    exit 1
+fi
+
+# Select Device Name and find Status
+DEVICE="$(echo $DEVICE | cut -d' ' -f2-)"
+DEVICE="${DEVICE%!}" # remove exclamation mark
+
+
+get_battery() {
+    $HEADSETCONTROL $OPTION_BATTERY $OPTION_SILENT
+}
+
+get_status() {
+	battery="$($HEADSETCONTROL $OPTION_BATTERY $OPTION_SILENT 2> /dev/null)"
+    if [ -n "$battery" ]; then
+        echo 'connected'
+        return 0
+    else
+        echo 'disconnected'
+        return 1
+    fi
+}
+
+
+# Bail if it is not connected
+if ! get_status > /dev/null; then
+    echo "${DEVICE} is $(get_status)!"
+    errcho "Exiting.."
+    exit 1
+fi
+# Polybar output
+
+case "$1" in
+    device)
+        echo $DEVICE is $(get_status)
+        ;;
+    battery)
+        echo $(get_battery)%
+        ;;
+    status|*)
+		echo "$DEVICE ($(get_status)): $(get_battery)%"
+        ;;
+esac
